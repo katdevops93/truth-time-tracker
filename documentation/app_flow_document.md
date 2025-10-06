@@ -1,0 +1,43 @@
+# App Flow Document for truth-time-tracker
+
+## Onboarding and Sign-In/Sign-Up
+
+When a new user first arrives at truth-time-tracker, they land on the public-facing homepage through a shared link or a search result. The landing page introduces the key benefits of tracking time, accompanied by a prominent call-to-action button labeled “Get Started.” Clicking this button directs the user to a signup screen. On the signup screen, the user provides their email address, chooses a password, and agrees to the terms of service. After submitting the registration form, they receive a confirmation email with a link to verify their account. Once they click the verification link, they are brought back to the application to complete an initial profile setup that asks for their name and a default time zone.
+
+If a returning user comes back to the site, they click the “Sign In” link in the header. The sign-in screen prompts for email and password. If the credentials match the stored records, the user is directed to the main dashboard. From any page within the app, the user can sign out by selecting their profile avatar in the header and choosing the “Sign Out” option. In case they forget their password, they can click the “Forgot Password” link on the sign-in screen. This opens a password recovery form where they enter their email address. The system sends a reset link to that email, and clicking it directs them to a page where they set a new password. After resetting, they return to the sign-in screen to enter their updated credentials.
+
+## Main Dashboard or Home Page
+
+Immediately after signing in, the user sees the main dashboard. The dashboard layout includes a fixed sidebar on the left, a header bar across the top, and the central content area. The sidebar lists links to core sections: Dashboard, Time Entries, Projects, Integrations, Settings, and Help. The header shows the user’s name, notification bell icon, and profile avatar. The central content area opens by default to a summary view that displays today’s tracked time, active timers, and a weekly overview chart.
+
+From the dashboard summary, the user can click a button labeled “Start Timer” to begin logging time on the most recent project. They can also click on any chart segment to navigate directly to the detailed report for that day or week. The sidebar always remains visible, allowing the user to jump to the Time Entries list, access the Projects page, or configure integrations. The breadcrumb in the header changes to show the current page, ensuring the user always knows where they are and can click back to the Dashboard at any time.
+
+## Detailed Feature Flows and Page Transitions
+
+On the Time Entries page, the user sees a table of all recorded time entries sorted by date. Each row shows the date, project name, start time, end time, and total duration. To create a new entry manually, the user clicks the “New Entry” button at the top right of the table. A form slides in, allowing them to select a project, enter a start and end time, and add an optional description. Submitting the form adds the entry to the list and updates the dashboard summary. If the user clicks the “Edit” icon next to an existing entry, an inline edit form appears, allowing adjustments to times or descriptions. Saving changes reflects immediately in both the table and the dashboard totals. If they click the “Delete” icon, a confirmation dialog pops up to ensure they want to remove the entry; confirming deletes the entry and updates the views.
+
+The Projects page lists all user-defined projects. Each project displays its name, total tracked hours, and a link to view project-specific reports. The user can add a new project by clicking “Add Project,” which opens a modal to enter the project name and optional color tag. Submitting adds the project to the list. Clicking on a project name navigates the user to a dedicated project report page that shows a calendar heatmap of tracked hours and a list of entries filtered for that project.
+
+Under Integrations, the user finds instructions for connecting external services. The page provides a unique webhook URL generated for the user. They can copy this URL and paste it into third-party tools to automatically push time entries. On this page, the user can also view recent webhook delivery logs, with each log entry showing a timestamp, payload preview, and status. If a delivery fails, the user sees an error message next to that log entry and an option to retry the webhook delivery.
+
+If the user is an administrator—identified by a special role in their profile—the sidebar reveals an additional Admin section. The Admin section allows the admin to see a list of all users, deactivate or reactivate accounts, and review global usage statistics. Actions taken in the Admin section require an extra confirmation step to prevent accidental changes.
+
+## Settings and Account Management
+
+The Settings page is accessible from the sidebar and via the profile avatar menu. On the Settings page, the user first sees the Profile tab, where they can update their name, email address, and time zone. There is a button to change the password that opens a secure form requiring the current password and a new password, with real-time validation on password strength. Below the Profile tab, a Preferences tab allows the user to configure default project for timers, date and time formats, and whether timers auto-start when opening the app. A Notifications tab lists toggles for daily summary emails, webhook failure alerts, and in-app notifications.
+
+If the application offers subscription plans, a Billing & Subscription tab appears. Here the user can view their current plan, see upcoming invoices, update credit card information, and change subscription tiers. Clicking “Cancel Subscription” opens a confirmation dialog explaining what features will be lost after cancellation.
+
+After saving any changes in Settings, the user sees a success message at the top and can click the “Return to Dashboard” link in the header to resume time tracking.
+
+## Error States and Alternate Paths
+
+If the user submits incorrect login credentials, the sign-in form displays an error message stating “Email or password is incorrect.” The user remains on the sign-in page and can retry. During password recovery, if the user enters an unregistered email, the form shows “No account found with that email.” Once they enter a valid address, the system sends a reset link. Throughout the app, network errors trigger a banner at the top of the screen reading “Network error. Please check your connection and try again.”
+
+On forms for time entries and projects, submitting invalid or missing fields highlights the affected inputs in red with messages such as “Start time must be before end time” or “Project name cannot be empty.” If the user attempts to delete an entry or project but the network request fails, a dialog alerts them that the action could not be completed and suggests retrying.
+
+If a webhook payload arrives with a missing signature or malformed data, the server responds with a 400 error and logs the issue. In the Integrations page, failed webhook deliveries appear in the logs with an error description. The user can click “Retry” on each failed delivery to attempt redelivery. For critical errors encountered in API routes, the system displays a generic “Something went wrong. Please contact support” page if the operation cannot continue.
+
+## Conclusion and Overall App Journey
+
+A user’s journey begins by discovering truth-time-tracker on the web and signing up via email and password. After verifying their account, they explore the dashboard where they can start and stop timers or manually record work sessions. They manage their projects and view detailed reports for individual projects or time periods. For power users, integrations allow automated time entry via webhooks and an admin section provides user management. Users maintain their personal profile and preferences in the Settings area, updating passwords, notifications, and billing information as needed. Error messages guide them gracefully through any missteps, ensuring they can quickly correct issues and continue tracking time. Over time, the user achieves their primary goal of accurately logging hours, reviewing productivity trends, and integrating time data with external systems, all within a smooth and connected application experience.

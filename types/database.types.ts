@@ -34,6 +34,66 @@ export type Database = {
     }
     public: {
         Tables: {
+            daily_notes: {
+                Row: {
+                    id: string
+                    user_id: string
+                    content: string
+                    date: string
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id: string
+                    user_id: string
+                    content: string
+                    date?: string
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    content?: string
+                    date?: string
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            time_entries: {
+                Row: {
+                    id: string
+                    user_id: string
+                    start_time: string
+                    end_time: string | null
+                    status: Database["public"]["Enums"]["time_entry_status"]
+                    description: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id: string
+                    user_id: string
+                    start_time?: string
+                    end_time?: string | null
+                    status?: Database["public"]["Enums"]["time_entry_status"]
+                    description?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    start_time?: string
+                    end_time?: string | null
+                    status?: Database["public"]["Enums"]["time_entry_status"]
+                    description?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
             customers: {
                 Row: {
                     id: string
@@ -216,6 +276,7 @@ export type Database = {
             | "past_due"
             | "unpaid"
             | "paused"
+            time_entry_status: "ACTIVE" | "COMPLETED" | "PAUSED"
         }
         CompositeTypes: {
             [_ in never]: never
