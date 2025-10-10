@@ -1,151 +1,141 @@
-# Backend Structure Document: truth-time-tracker
-
-This document provides a clear overview of the backend setup for the truth-time-tracker application. It explains how the system is built, how data is managed, which services are used to host and scale it, and how we keep everything secure and running smoothly.
+# Backend Structure Document for truth-time-tracker
 
 ## 1. Backend Architecture
 
-### Overall Design
-- The application uses **Next.js** with its App Router for both the user interface and backend logic. This means pages and server code live in the same project and share many of the same tools.
-- **API Routes** (sometimes called serverless functions) handle custom backend tasks like saving time entries or processing webhooks.
-- **TypeScript** is used throughout, so we catch many mistakes before the code even runs.
+The backend of truth-time-tracker is built on a serverless, full-stack JavaScript framework that keeps things simple while allowing us to grow easily.
 
-### Scalability, Maintainability, and Performance
-- **Scalability:** Every API route runs in a serverless environment (for example, on Vercel). When traffic spikes, the platform automatically spins up more instances—no manual intervention needed.
-- **Maintainability:** Co-locating related code (pages, components, and API logic) makes it easier to find and update features in one place.
-- **Performance:** Next.js offers built-in support for:
-  - **Server-Side Rendering (SSR):** Updated pages generated on each request when data changes frequently.
-  - **Static Site Generation (SSG):** Pages built once at deploy time for content that changes rarely.
-  - **Incremental Static Regeneration (ISR):** Combines SSR and SSG to update static pages in the background when data changes.
+- We use Next.js API routes for all of our server-side logic. Each route behaves like a mini service that runs only when it’s needed.
+- TypeScript ensures that our code stays reliable and easier to read and maintain over time.
+- Prisma is our ORM (Object-Relational Mapper). It turns database tables into TypeScript objects so we can work with data safely and with autocomplete.
+
+How it supports our goals:
+- Scalability: Serverless functions on Vercel spin up or down automatically based on traffic. We don’t have to manage servers.
+- Maintainability: Clear folder structure (`app/api/`, `lib/`, `prisma/`) and type safety with TypeScript reduce bugs and make new features faster to build.
+- Performance: Cold starts are minimal on Vercel; also, our use of SSR/SSG in Next.js plus React Query caching keeps pages fast.
 
 ## 2. Database Management
 
-### Current Status and Choice
-- At the moment, the project does not include a live database. To store and query user data and time entries, we recommend:
-  - **PostgreSQL** (a reliable relational database) paired with
-  - **Prisma** (an ORM tool) for easy data modeling and type-safe queries.
+We rely on Supabase—a hosted PostgreSQL database with built-in authentication and security features.
 
-### Data Structure and Access
-- **Users** sign up or log in, then create and view time entries.
-- **Projects** group related time entries.
-- **Time entries** record the start, end, and description of each tracked session.
-- The backend uses Prisma to translate code operations (for example, “create a new time entry”) into SQL queries behind the scenes.
+- Database type: Relational (PostgreSQL).
+- ORM and migrations: Prisma handles schema definitions and migrations.
+- Data security: We leverage Supabase’s Row-Level Security (RLS) to ensure each user can only read and write their own records.
+- Backup and recovery: Supabase automatically takes daily snapshots of the database, so we can restore data if needed.
 
 ## 3. Database Schema
 
-#### Human-Friendly Overview
-- **Users**
-  - Unique identifier
-  - Name and email
-  - Password hash for security
-  - Timestamps for account creation and updates
-- **Projects**
-  - Unique identifier
-  - Title and optional description
-  - Owner (which user created it)
-  - Timestamps
-- **Time Entries**
-  - Unique identifier
-  - Link to a user and link to a project
-  - Description of the work done
-  - Start and end times
-  - Duration (calculated or stored)
-  - Timestamps
+Below is a human-readable overview, followed by SQL definitions for PostgreSQL. All tables use a `user_id` to link data to the correct user.
 
-#### Example SQL Schema (PostgreSQL)
+Tables:
+- **users**: Managed by Clerk (no custom table). We store Clerk’s user ID in each record.
+- **time_entries**: Tracks when a user starts, pauses, resumes, or stops a timer session.
+- **daily_notes**: Stores the written notes that users add each day.
+- **subscriptions**: Keeps track of Stripe subscription status and plan details.
+
+PostgreSQL schema (SQL):
+
 ```sql
-CREATE TABLE users (
-  id              SERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  email           TEXT UNIQUE NOT NULL,
-  password_hash   TEXT NOT NULL,
-  created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE projects (
-  id              SERIAL PRIMARY KEY,
-  owner_id        INTEGER REFERENCES users(id),
-  title           TEXT NOT NULL,
-  description     TEXT,
-  created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
+-- time_entries table
 CREATE TABLE time_entries (
-  id              SERIAL PRIMARY KEY,
-  user_id         INTEGER REFERENCES users(id),
-  project_id      INTEGER REFERENCES projects(id),
-  description     TEXT,
-  start_time      TIMESTAMP WITH TIME ZONE NOT NULL,
-  end_time        TIMESTAMP WITH TIME ZONE NOT NULL,
-  duration_minutes INTEGER,
-  created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ,
+  status TEXT NOT NULL CHECK (status IN ('running','paused','completed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- daily_notes table
+CREATE TABLE daily_notes (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  entry_date DATE NOT NULL,
+  content TEXT NOT NULL,
+  time_entry_id INT REFERENCES time_entries(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- subscriptions table
+CREATE TABLE subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  stripe_customer_id TEXT NOT NULL,
+  stripe_subscription_id TEXT NOT NULL,
+  plan_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```  
 
 ## 4. API Design and Endpoints
 
-### Approach
-- All backend calls use **RESTful** endpoints implemented as Next.js API Routes in the `app/api/` folder.
-- JSON is the data format for both requests and responses, making it easy for the frontend and external services to talk to us.
+We follow a RESTful approach with clear, focused endpoints. Each API route lives in `app/api/` and runs as a serverless function.
 
-### Key Endpoints
-- **User Management**
-  - `POST /api/signup` — Create a new user account
-  - `POST /api/login` — Log in and receive a session token
-- **Project Management**
-  - `GET /api/projects` — List the user’s projects
-  - `POST /api/projects` — Create a new project
-- **Time Entry Management**
-  - `GET /api/time-entries` — Fetch a list of entries for a given project
-  - `POST /api/time-entries` — Record a new time entry
-  - `PUT /api/time-entries/{id}` — Update an existing entry
-  - `DELETE /api/time-entries/{id}` — Remove an entry
-- **Webhooks**
-  - `POST /api/webhooks` — Receive and process external events (for example, automated imports or notifications)
+- **/api/sessions**
+  - `POST /start` : Start a new time entry.
+  - `POST /pause` : Pause the active time entry.
+  - `POST /resume`: Resume a paused entry.
+  - `POST /stop`  : Stop and finalize the entry.
+  - `GET /`       : List all time entries for the current user.
+
+- **/api/notes**
+  - `GET /`       : Retrieve all daily notes for the user.
+  - `POST /`      : Create a new daily note.
+  - `PUT /:id`    : Update an existing note by its ID.
+  - `DELETE /:id` : Remove a note by its ID.
+
+- **/api/webhooks**
+  - `POST /`      : Handle incoming Stripe events (subscription updates, payment successes, etc.). We verify the Stripe signature before processing.
+
+- **/api/subscriptions**
+  - `GET /`       : Fetch the current subscription status and plan info.
+
+Each endpoint checks the user’s identity using Clerk middleware before running.
 
 ## 5. Hosting Solutions
 
-- We deploy the entire backend and frontend to **Vercel**, the company behind Next.js.
-- Benefits:
-  - Global **CDN** (Content Delivery Network) for fast content delivery without extra setup.
-  - **Automatic scaling** of serverless API functions handling spikes in usage.
-  - Built-in **SSL certificates** and simple custom domain setup.
-  - Free tier options for small-scale usage, keeping cost low in early stages.
+We host on Vercel, which is made for Next.js and serverless functions:
+
+- **Global CDN**: Static assets and pages are cached at the edge around the world.
+- **Auto-scaling**: Serverless functions scale to zero when idle and ramp up instantly under load.
+- **Cost-effective**: You pay for usage rather than idle server time.
+- **Easy deployments**: Push to GitHub and Vercel takes care of building and deploying.
+
+Our database lives on Supabase’s managed cloud service, which provides high availability, automatic backups, and easy scaling.
 
 ## 6. Infrastructure Components
 
-- **Load Balancing:** Handled automatically by Vercel’s serverless platform—requests route to the nearest healthy instance.
-- **CDN:** Static files (styles, fonts, images) and statically generated pages are served from edge locations worldwide.
-- **Caching:**
-  - Next.js ISR lets us cache pages at the edge and refresh them on a schedule.
-  - HTTP cache headers on API responses can be tuned for read-heavy endpoints.
-- **Logging & Error Tracking:** Basic logs appear in Vercel’s dashboard. For deeper insights, we integrate with tools like Sentry (see Monitoring).  
+- **Load Balancer & CDN**: Built into Vercel. Distributes traffic to the nearest serverless function or edge cache.
+- **Serverless Functions**: Each API route is deployed as an isolated function, reducing blast radius and improving reliability.
+- **Caching**:
+  - Next.js ISR (Incremental Static Regeneration) for pages that can be updated in the background.
+  - React Query on the client to cache API responses and minimize network calls.
+- **Content Delivery**: Vercel’s Edge Network serves static assets (JS, CSS, images) quickly to users worldwide.
 
 ## 7. Security Measures
 
-- **Authentication & Authorization:** We recommend using **NextAuth.js** with JSON Web Tokens (JWTs) to protect routes and resources.
-- **Data Encryption:**
-  - All network traffic uses HTTPS by default on Vercel.
-  - PostgreSQL databases on managed services encrypt data at rest.
-- **Input Validation:** Libraries like Zod ensure incoming data has the correct shape before it reaches our database.
-- **Webhook Security:** Every incoming webhook request must include a known signature or secret header. We verify this before processing.
-- **Rate Limiting:** A simple custom middleware can throttle repeated requests to critical endpoints to prevent abuse.
+- **Authentication & Authorization**: Clerk handles user sign-up, sign-in, and tokens. We apply a middleware in `middleware.ts` to protect API routes.
+- **Data Protection**:
+  - All traffic is encrypted via HTTPS/TLS.
+  - Supabase enforces Row-Level Security so users can only access their own rows.
+- **Payment Webhooks**: We verify Stripe webhook signatures to prevent fake requests.
+- **Environment Variables**: Secrets (Clerk keys, Stripe secret, database URLs) live in Vercel’s secure environment settings.
 
 ## 8. Monitoring and Maintenance
 
-- **Uptime & Performance:** Vercel provides basic analytics on build times, response latencies, and traffic.
-- **Error Tracking:** Integrate **Sentry** or a similar service to capture runtime errors and stack traces.
-- **Automated Deployments:** Every commit to the main branch triggers a new build and deploy, ensuring that updates go live quickly and consistently.
-- **Database Backups & Migrations:** With Prisma:
-  - Automated schema migrations track changes over time.
-  - Managed database providers often include daily backups.
+- **Logging & Metrics**:
+  - Vercel Analytics provides HTTP metrics (latency, error rates).
+  - Supabase’s dashboard shows database performance and slow queries.
+- **Error Tracking**: We use console logs today, and we plan to add a service like Sentry to capture errors and stack traces.
+- **Database Migrations**: Prisma migrations are run during each deployment, ensuring schema changes are applied automatically.
+- **Backups**: Supabase takes daily snapshots of the database for point-in-time recovery.
+- **Routine Maintenance**: We review usage logs monthly, rotate keys as needed, and apply dependency updates via automated pull requests.
 
 ## 9. Conclusion and Overall Backend Summary
 
-The truth-time-tracker backend is built on Next.js and TypeScript, combining user interface and server logic in a single framework. Serverless API Routes handle data operations, webhooks, and integrations without dedicated servers. We plan to add PostgreSQL with Prisma ORM for data persistence, ensuring clear data models for users, projects, and time entries.
-
-By hosting on Vercel, we gain automatic scaling, a global CDN, and low operational overhead. Security is enforced through HTTPS, JWT-based authentication, input validation, and webhook signature checks. Monitoring and maintenance focus on automated deployments, error tracking, and performance analytics.
-
-This setup delivers a reliable, scalable, and cost-effective backend that meets the project’s goals of easy time tracking, external integrations, and responsive user experience.
+truth-time-tracker’s backend is a modern, serverless setup that balances simplicity and power. By using Next.js API routes, Supabase, and Prisma, we get a type-safe, scalable, and maintainable system right out of the box. Vercel ensures our app performs well around the globe without complex server management. Security is baked in through Clerk authentication, Stripe signature checks, and database RLS. Regular monitoring and automated migrations keep the system healthy and ready to grow. This architecture supports our goals of a reliable, performant, and user-friendly time tracking platform.

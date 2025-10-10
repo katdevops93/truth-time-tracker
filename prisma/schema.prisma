@@ -52,6 +52,7 @@ model User {
 
   timeEntries TimeEntry[]
   dailyNotes  DailyNote[]
+  meals       Meal[]
 
   @@map("users")
 }
@@ -60,4 +61,45 @@ enum TimeEntryStatus {
   ACTIVE
   COMPLETED
   PAUSED
+}
+
+model Meal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime @default(now())
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipes    Recipe[]
+
+  @@map("meals")
+}
+
+model Recipe {
+  id           String   @id @default(cuid())
+  mealId       String
+  instructions String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  meal        Meal        @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  ingredients Ingredient[]
+
+  @@map("recipes")
+}
+
+model Ingredient {
+  id       String @id @default(cuid())
+  recipeId String
+  name     String
+  quantity String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@map("ingredients")
 }

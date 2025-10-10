@@ -5,6 +5,7 @@ import { SignedIn, SignedOut } from '@clerk/nextjs'
 import { Hero } from '@/components/ui/animated-hero'
 import { TimeTracker } from '@/components/app/TimeTracker'
 import { DailyNotes } from '@/components/app/DailyNotes'
+import { Layout } from '@/components/app/Layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, FileText, Target, TrendingUp } from 'lucide-react'
@@ -14,19 +15,20 @@ function Dashboard() {
   const { user } = useUser()
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold tracking-tight mb-2">
-          Truth Time Tracker
-        </h1>
-        <p className="text-xl text-muted-foreground">
-          Stop lying to yourself. See the truth about your actual work time.
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Welcome back, {user?.firstName || user?.username || 'User'}!
-        </p>
-      </div>
+    <Layout>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold tracking-tight mb-2">
+            Truth Time Tracker
+          </h1>
+          <p className="text-xl text-muted-foreground">
+            Stop lying to yourself. See the truth about your actual work time.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Welcome back, {user?.firstName || user?.username || 'User'}!
+          </p>
+        </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -111,7 +113,8 @@ function Dashboard() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   )
 }
 

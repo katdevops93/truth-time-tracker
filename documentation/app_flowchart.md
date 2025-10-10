@@ -1,22 +1,18 @@
 flowchart TD
-    A[User] --> B[Landing Page]
-    B --> C{User Authenticated?}
-    C -- Yes --> D[Dashboard]
-    C -- No --> E[Login Page]
-    E --> F[Submit Credentials]
-    F --> G[Auth API Route]
-    G --> H{Credentials Valid?}
-    H -- Yes --> D
-    H -- No --> I[Display Auth Error]
-    D --> J[View Time Entries]
-    D --> K[Create Time Entry]
-    K --> L[Time Entry Form]
-    L --> M[Time Entries API Route]
-    M --> N[Save To Database]
-    N --> O[Return Response]
-    O --> D
-    M --> P[Trigger Webhook]
-    P --> Q[Webhook API Route]
-    Q --> R[Process Webhook Event]
-    R --> S[Update Entries]
-    S --> D
+    A[User Access App] --> B[Clerk Authentication Flow]
+    B --> C[Dashboard]
+    C --> D[Time Tracker Component]
+    D --> E[Sessions API]
+    E --> F[Prisma and Supabase DB]
+    D --> G[Stop Timer Action]
+    C --> H[Daily Notes Component]
+    H --> I[Notes API]
+    I --> F
+    C --> J[Performance Dashboard]
+    J --> K[Aggregated Data Query]
+    K --> F
+    C --> L[Subscription Management UI]
+    L --> M[Stripe API]
+    M --> N[Webhook Endpoint]
+    N --> O[Subscription Status Update]
+    O --> L

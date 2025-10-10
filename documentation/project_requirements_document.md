@@ -1,111 +1,133 @@
-# Project Requirements Document (PRD) for "truth-time-tracker"
+# Project Requirements Document (PRD) for truth-time-tracker
 
 ## 1. Project Overview
 
-The "truth-time-tracker" is a web-based time-tracking application that helps individuals and teams record, manage, and analyze the time they spend on tasks or projects. Users can add new time entries, edit or delete existing ones, view summaries in a dashboard, and connect the app to other services via webhooks. By focusing on simplicity and reliability, the tool aims to replace manual spreadsheets and fragmented trackers.
+truth-time-tracker is a modern web application that helps individuals and small teams capture, organize, and analyze the time they spend on tasks and projects. At its core, it provides a real-time timer users can start, pause, resume, and stop; a daily notes interface to record accomplishments and context; and a clean dashboard that summarizes daily and weekly productivity. By combining secure authentication, detailed logging, and subscription management, the platform aims to turn raw time data into actionable insights.
 
-This project is being built to give knowledge workers, freelancers, and small teams a single place to capture their working hours accurately, generate quick reports, and automate workflows through webhook integrations. Success will be measured by user adoption (number of active users), accuracy of time logs, and reliability of webhook events (measured by delivery and processing rates).
+We’re building truth-time-tracker to solve two key problems: (1) eliminating manual time-entry errors and guesswork by offering one-click tracking, and (2) providing clear, contextual reports that help users understand where their time really goes. Success for the MVP will be measured by user engagement (daily active timers), accuracy of logged sessions (less than 5% editing), and subscription conversions (trial→paid rate ≥ 10%).
 
 ## 2. In-Scope vs. Out-of-Scope
 
-### In-Scope (Version 1)
-- User interface for:  
-  • Dashboard listing all time entries  
-  • Form to create, edit, and delete entries  
-  • Start/stop timer widget for live tracking
-- Data persistence in a relational database (e.g., PostgreSQL or Supabase) with Prisma ORM
-- Next.js API Route `/api/webhooks/route.ts` that accepts, validates, and processes incoming webhook events
-- Authentication (email/password or magic link) to secure user data
-- Basic reports view (daily and weekly summaries)
-- Global layout with header, footer, and responsive design
-- Configuration screen where users set a webhook secret and view integration logs
-- Automated tests covering unit, integration, and basic end-to-end flows
+### In-Scope (MVP)
+- User sign-up, sign-in, and profile management via Clerk authentication.  
+- Real-time timer: start, pause, resume, stop sessions for named tasks.  
+- Daily notes: CRUD interface to attach text entries to each day.  
+- Dashboard: daily and weekly summaries of time spent, total durations per task, simple bar or line charts.  
+- Backend REST API: `/api/sessions`, `/api/notes`, `/api/webhooks`.  
+- Data persistence: Supabase (PostgreSQL) with Prisma ORM and Row-Level Security.  
+- Stripe subscription billing: trial management, plan changes, webhooks to update user access.  
+- Hosting and deployment on Vercel.  
+- TypeScript throughout for type safety.  
 
-### Out-of-Scope (Later Phases)
-- Advanced billing or invoicing features
-- Team and role-based permissions beyond a single user scope
-- Mobile app (native iOS/Android) or desktop client
-- Multi-tenancy support for large enterprises
-- Deep analytics (charts, trends beyond simple summaries)
-- Third-party OAuth providers (Google, GitHub, etc.)
-- AI-powered time suggestions or auto-tagging
+### Out-of-Scope (Phase 2+)
+- Team or project-level sharing/permissions (multiple users per workspace).  
+- Detailed analytics (heatmaps, custom date ranges, export to CSV/PDF).  
+- Calendar or external calendar integration (Google, Outlook).  
+- Mobile-native apps (iOS/Android).  
+- Multi-currency or advanced billing (coupons, prorated upgrades).  
+- Offline mode or local caching for timer continuity.  
 
 ## 3. User Flow
 
-A new user lands on the public homepage and signs up with their email and password (or magic link). After logging in, they see the main dashboard: a table of past time entries with date, project name, duration, and notes. A prominent “+ New Entry” button at the top right opens a form modal where they enter project details, start and end times, and optional notes. Once saved, the entry appears instantly in the table.
+A new user arrives at the landing page and clicks “Sign Up.” They enter their email, choose a password, and verify via Clerk’s authentication dialog. Upon successful sign-in, they land on the main dashboard. At the top, there’s a prominent timer component labeled “Start Timer,” and below it, a note section labeled "Today's Notes." A left sidebar provides links to “Dashboard,” “History,” and “Account Settings.”
 
-If the user prefers live tracking, they click the “Start Timer” button, track the task in real time, and then click “Stop Timer” when done. They can navigate to the “Reports” tab to view daily or weekly summaries. In the “Settings” page, they configure their webhook secret and see a log of incoming webhook events. All interactions happen within a consistent header/sidebar layout that adapts to mobile screens.
+To track time, the user types a task name into the timer field and clicks “Start.” The timer ticks in real time, and the “Pause” and “Stop” buttons appear. When they pause or stop, the session is saved automatically. They then scroll down, add context to today’s session in the notes input, and click “Save Note.” On the right, the dashboard chart updates to reflect the new duration. If their trial expires or they want premium charts, they click “Upgrade,” manage their plan in Stripe’s embedded UI, and complete payment. Webhook events keep their subscription status in sync.
 
 ## 4. Core Features
 
-- **Authentication & User Management**: Sign up, log in, password reset (magic link or email/password).
-- **Dashboard & Time Entries**: List, search, filter, sort, and page through entries.
-- **Time Entry Form**: Create/edit/delete entries with fields: project name, start time, end time, duration (auto-calculated), and notes.
-- **Live Timer**: Start/stop button to capture current session without manual timestamps.
-- **Reports View**: Summarize time spent per day and week, with total hours by project.
-- **Webhook Integration**: Protected API endpoint to receive events, validate using HMAC secret, and auto-create or update entries.
-- **Settings & Configuration**: UI to manage webhook secrets and view delivery logs.
-- **Global Layout & Responsiveness**: Header, navigation, footer, mobile-friendly design.
-- **Testing Suite**: Unit tests (Jest), integration tests (React Testing Library), and end-to-end tests (Cypress or Playwright).
+- **Authentication & Authorization**  
+  • Clerk-powered sign-up, sign-in, session management.  
+  • Middleware protection for API routes and pages.
+
+- **Real-Time Timer Component**  
+  • Start, pause, resume, stop actions.  
+  • Task naming and session metadata (start time, end time).
+
+- **Daily Notes & Activity Logging**  
+  • Create, read, update, delete notes per date.  
+  • Associate notes with sessions when needed.
+
+- **Dashboard & Reporting**  
+  • Aggregated daily/weekly time totals.  
+  • Simple bar or line charts (using a lightweight chart library).  
+  • Filter by date range (preset: today, this week).
+
+- **Subscription Management**  
+  • Stripe integration for trial and paid plans.  
+  • Webhook endpoint to update user access on events (invoice.paid, customer.subscription.deleted).
+
+- **Backend API**  
+  • Next.js API routes under `/api/` for sessions, notes, webhooks.  
+  • Prisma models for `User`, `Session`, `DailyNote`, `Subscription`.
+
+- **Data Layer & Security**  
+  • Supabase PostgreSQL with Row-Level Security to ensure users only see their own records.  
+  • Type-safe database operations via Prisma.
 
 ## 5. Tech Stack & Tools
 
-- **Frontend**:  
-  • Next.js (App Router) with React  
-  • TypeScript for type safety  
-  • Global CSS + CSS Modules
-- **Backend / API**:  
-  • Next.js API Routes  
-  • TypeScript
-- **Database & ORM**:  
-  • PostgreSQL (or Supabase)  
-  • Prisma ORM
-- **Hosting & Deployment**:  
-  • Vercel (for serverless functions and SSR)  
-  • Environment variables managed via Vercel settings
-- **Testing & QA**:  
-  • Jest + React Testing Library  
-  • Cypress or Playwright for end-to-end tests
-- **Developer Tooling**:  
-  • VS Code with ESLint and Prettier  
-  • Optional: Cursor for documentation consistency
+- **Frontend**  
+  • Next.js (App Router) + React  
+  • shadcn/ui (Radix UI) + Tailwind CSS  
+  • React Query (TanStack) + React Context API  
+  • Framer Motion for transitions
+
+- **Authentication**  
+  • Clerk (client SDK and server middleware)
+
+- **Backend & Database**  
+  • Next.js API Routes (serverless)  
+  • Supabase (PostgreSQL)  
+  • Prisma ORM  
+  • Stripe (Node.js SDK)
+
+- **Hosting & Deployment**  
+  • Vercel for frontend and serverless functions
+
+- **Languages & Tooling**  
+  • TypeScript, ESLint, Prettier  
+  • GitHub Actions (CI/CD)  
 
 ## 6. Non-Functional Requirements
 
 - **Performance**:  
-  • First Contentful Paint (FCP) under 1.5s on 3G  
-  • API responses under 300ms for common queries
+  • API response times < 200 ms (typical queries).  
+  • First contentful paint < 1.2 s on 3G simulated network.
+
+- **Security & Compliance**:  
+  • All sensitive routes protected by Clerk middleware.  
+  • HTTPS only, secure cookies, proper CORS settings.  
+  • Stripe PCI DSS compliance via hosted checkout.
+
 - **Scalability**:  
-  • Support up to 10,000 time entries per user  
-  • Handle 100 concurrent users without performance degradation
-- **Security**:  
-  • Webhook endpoint protected by HMAC secret  
-  • HTTPS everywhere  
-  • Input validation on all forms and API routes  
-  • Rate limiting on public endpoints
-- **Reliability**:  
-  • 99.9% uptime SLA  
-  • Automated backups of the database
+  • Serverless functions scale automatically on Vercel.  
+  • Supabase can handle thousands of concurrent connections.
+
 - **Usability & Accessibility**:  
-  • Responsive design (mobile and desktop)  
-  • WCAG 2.1 Level AA compliance
+  • WCAG 2.1 AA–compliant UI components (Radix + Tailwind).  
+  • Keyboard navigation, ARIA labels on key controls.
+
+- **Reliability & Monitoring**:  
+  • Uptime target: 99.9%.  
+  • Error tracking via Sentry or similar.  
+  • Logs retained for 30 days.
 
 ## 7. Constraints & Assumptions
 
-- The project uses Next.js App Router, requiring Node.js 18+ and Vercel deployment.
-- A managed PostgreSQL (or Supabase) instance is available.
-- Users have modern browsers (last two versions of Chrome, Firefox, Safari).
-- Webhook providers will sign requests using an HMAC secret for validation.
-- Team members are familiar with TypeScript and React.
+- Clerk and Stripe accounts are fully configured and in test/production modes.  
+- Supabase project with Row-Level Security enabled.  
+- Vercel account linked to GitHub repo for seamless deploys.  
+- Assumes users have modern browsers with JavaScript enabled.  
+- No offline or mobile-app support in V1.
 
 ## 8. Known Issues & Potential Pitfalls
 
-- **Webhook Idempotency**: Receiving duplicate events can create duplicate entries. Mitigation: use unique event IDs and skip repeats.
-- **Long-Running Tasks**: Processing heavy webhook payloads in the API route may time out. Mitigation: offload to a background queue (e.g., Redis + Bull).
-- **Time Zone Handling**: Users in different time zones could see incorrect durations. Mitigation: store timestamps in UTC and convert on the client.
-- **Database Migrations**: Manual schema changes risk downtime. Mitigation: use Prisma’s migration workflow and test on staging.
-- **API Rate Limits**: Third-party services may throttle webhook deliveries. Mitigation: implement exponential backoff retries and logging.
+- **API Rate Limits**: Supabase free tier has limits—monitor and consider caching or upgrading.  
+- **Webhook Reliability**: Stripe events may retry; ensure idempotency for subscription updates (use event IDs).  
+- **Time Zone Handling**: Users in different time zones need consistent session dates—standardize on UTC in the database and convert on the client.  
+- **Optimistic Updates**: React Query optimistic UI may display sessions before DB confirmation—handle rollback on errors.  
+- **Large Data Sets**: Dashboard queries on long histories could slow down—limit initial date range or implement cursor-based pagination.
+
 
 ---
-
-This PRD captures all major requirements and constraints so that subsequent technical documents (Tech Stack details, Frontend Guidelines, Backend Architecture, etc.) can be generated with no ambiguity. If anything is unclear or new requirements emerge, update this document first.
+This PRD fully defines truth-time-tracker’s MVP scope, user flows, features, and technical constraints, serving as the single source of truth for subsequent technical design documents.

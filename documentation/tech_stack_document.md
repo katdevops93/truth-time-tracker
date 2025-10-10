@@ -1,98 +1,102 @@
 # Tech Stack Document for truth-time-tracker
 
-This document explains, in everyday language, why we chose each technology for the truth-time-tracker project. It covers the frontend, backend, infrastructure, third-party integrations, security, performance, and a summary of how everything fits together.
+This document explains the technology choices behind **truth-time-tracker**, a web application for precise time tracking and productivity insights. It’s written in everyday language so anyone can understand how each technology contributes to the project.
 
-## Frontend Technologies
+## 1. Frontend Technologies
 
-We built the user interface—the part people see and click—using these tools:
+These are the tools and libraries used to build the user interface and client-side logic:
 
 - **Next.js (App Router)**  
-  Offers file-based routing, server-side rendering (SSR), and static site generation (SSG). This means pages load quickly, and we can pre-render content for performance and SEO benefits.
+  Provides a modern React framework with support for server-side rendering (SSR), static site generation (SSG), and built-in API routes. Improves performance and SEO while keeping code organized.
+- **React & TypeScript**  
+  React powers interactive UI components; TypeScript adds type safety, reducing bugs and making the codebase easier to maintain.
+- **Shadcn/ui (built on Radix UI)**  
+  A customizable, accessible component library that speeds up UI development and ensures a consistent look and feel.
+- **Tailwind CSS**  
+  A utility-first CSS framework that lets us style components quickly and consistently without writing custom CSS classes.
+- **TanStack React Query**  
+  Manages data fetching, caching, and synchronization with the backend. Ensures the app always displays the most up-to-date information with minimal loading delays.
+- **React Context API**  
+  Shares global state (such as the user’s session details) across components without prop drilling.
+- **Framer Motion**  
+  Adds smooth animations and transitions that make the interface feel more responsive and engaging.
+- **Clerk (Client-side SDK)**  
+  Handles user sign-up, sign-in, and profile management, keeping authentication secure and easy to integrate into the UI.
 
-- **React**  
-  A popular library for building reusable UI components (buttons, forms, lists). React’s component-based approach makes the interface maintainable and easy to extend.
+**How these enhance UX:**  
+Using Next.js with React Query and TypeScript ensures fast, reliable page loads and data updates. Shadcn/ui and Tailwind CSS let us craft a clean, accessible design quickly. Framer Motion adds subtle animations that guide users through tasks without slowing them down.
 
-- **TypeScript**  
-  Adds a layer of safety by checking our code as we write it. It catches errors early and makes the code easier to understand.
+## 2. Backend Technologies
 
-- **Global CSS & Custom Fonts**  
-  We use a single `globals.css` file to define site-wide styles (colors, spacing, typography). Custom font files (`.woff`) ensure consistent branding and readability.
-
-- **Context Providers**  
-  Manage shared state (for example, user authentication status or theme settings) across the app without passing props through many layers.
-
-## Backend Technologies
-
-The backend handles data storage, business logic, and integrations behind the scenes:
+The server-side logic, database interaction, and business rules are built with these components:
 
 - **Next.js API Routes**  
-  Built-in serverless endpoints (`/app/api/webhooks/route.ts`) let us receive and process incoming webhooks or user requests without running a separate server.
+  Serverless functions that live alongside the frontend code. Handle all CRUD operations and business logic without the need for a separate server.
+- **Node.js Runtime & TypeScript**  
+  Executes API routes on Vercel’s serverless platform. TypeScript provides strong typing for request handlers and utilities.
+- **Supabase (PostgreSQL)**  
+  A managed PostgreSQL database service with built-in authentication and row-level security. Stores time entries, user profiles, daily notes, and subscription data.
+- **Prisma ORM**  
+  A type-safe query builder that simplifies database interactions and manages schema migrations. Ensures our database queries are reliable and maintainable.
 
-- **Node.js & TypeScript**  
-  These drive our server logic. TypeScript ensures consistency between frontend and backend code.
+**Working together:**  
+When a user starts a timer, the frontend calls a Next.js API route. That route uses Prisma to write the start time into Supabase. React Query then fetches that updated information and the timer UI updates in real time.
 
-- **Database (PostgreSQL + Prisma)**  
-  We recommend using PostgreSQL—a reliable, open-source database—and Prisma as an ORM (Object-Relational Mapper) to read/write data in a safe, structured way. This combination makes it easy to model entities like users, projects, and time entries.
+## 3. Infrastructure and Deployment
 
-## Infrastructure and Deployment
+How the application is hosted, versioned, and delivered to users:
 
-These choices keep our application running smoothly and let us ship updates quickly:
+- **Vercel Hosting**  
+  Automatically deploys the Next.js app and serverless functions with each code push. Offers global CDN distribution for fast page loads.
+- **Git & GitHub**  
+  Version control and code collaboration happen in a GitHub repository. Pull requests, code reviews, and branching strategies keep the team in sync.
+- **CI/CD Pipeline (Vercel)**  
+  Every commit to the main branch triggers an automated build and deployment. Preview deployments for pull requests let stakeholders review changes before merging.
+- **Environment Management**  
+  Securely stores API keys and database credentials in environment variables, ensuring sensitive data never appears in code.
 
-- **Version Control (Git & GitHub)**  
-  All code lives in a GitHub repository to track changes and collaborate safely.
+**Benefits:**  
+This setup guarantees that every change is tested and deployed quickly and reliably. It scales automatically as user demand grows, and rollbacks are simple if a deployment issue arises.
 
-- **Hosting (Vercel)**  
-  Automatically deploys our Next.js app on every push to the main branch. Vercel handles serverless functions for our API routes and global CDN for fast content delivery.
+## 4. Third-Party Integrations
 
-- **CI/CD Pipeline (GitHub Actions)**  
-  Runs automated checks—linting, type checking, and tests—on every pull request. This prevents errors from reaching production.
+External services that add functionality without reinventing the wheel:
 
-- **Environment Variables**  
-  Securely store keys and configuration (database URLs, webhook secrets) outside of the codebase.
+- **Clerk**  
+  Manages authentication, user profiles, multi-factor login flows, and secure sessions.
+- **Stripe**  
+  Powers subscription plans, billing cycles, and payment processing. Webhooks from Stripe keep our database in sync with the user’s subscription status.
+- **Supabase Client Libraries**  
+  Used for authenticated database operations and real-time updates when row-level security rules change.
 
-## Third-Party Integrations
+**How they help:**  
+Clerk and Stripe allow us to focus on core features while relying on proven services for user management and payments. Webhooks ensure that billing events (like plan upgrades) are handled automatically without user intervention.
 
-Our webhook endpoint and potential connectors let the time tracker communicate with external services:
+## 5. Security and Performance Considerations
 
-- **Webhook Receiver**  
-  A dedicated API route listens for events (for example, new entries from another app) and processes them in real time.
+Measures taken to protect user data and keep the app running smoothly:
 
-- **Zapier / IFTTT / Slack / Email**  
-  Although not limited to these, our design makes it easy to plug in any service that supports webhooks. This could include notifications (Slack), automated workflows (Zapier), or calendar syncing.
+- **TypeScript Everywhere**  
+  Catches errors at development time, reducing runtime issues in production.
+- **Authentication Middleware**  
+  Next.js middleware enforces that only authenticated users can access time-tracking routes and data.
+- **Row-Level Security (RLS)**  
+  Supabase’s RLS policies ensure users can only read and write their own time entries and notes.
+- **React Query Optimization**  
+  Caches data and performs background refetching, minimizing unnecessary network requests and keeping the UI responsive.
+- **Serverless Scalability**  
+  Vercel automatically scales API routes based on incoming traffic, preventing slowdowns under load.
+- **Data Validation (Future Recommendation)**  
+  Adding a library like Zod for request validation would further guard against malformed data (already identified as a best practice).
 
-- **Analytics (Google Analytics / Plausible)**  
-  Track user behavior, page load times, and feature usage to make data-driven improvements.
+## 6. Conclusion and Overall Tech Stack Summary
 
-## Security and Performance Considerations
+truth-time-tracker combines modern, battle-tested technologies to deliver a secure, fast, and user-friendly time-tracking experience:
 
-We follow best practices to keep user data safe and ensure a snappy experience:
+- Frontend built with **Next.js**, **React**, **TypeScript**, **Shadcn/ui**, and **Tailwind CSS** for a polished and maintainable UI.
+- Backend handled by **Next.js API routes**, **Prisma**, and **Supabase** for seamless data management.
+- Hosted on **Vercel** with **GitHub** version control and automated CI/CD for reliable deployments.
+- **Clerk** and **Stripe** integrations streamline authentication and billing, letting the team focus on core features.
+- Strong security via middleware, row-level database policies, and type safety; high performance through caching, serverless scaling, and optimized rendering.
 
-- **Authentication & Authorization**  
-  Plan to use NextAuth.js (or a similar library) for secure user sign-in and session management. Only valid users can access private pages and API routes.
-
-- **Input Validation & Sanitization**  
-  Use a library like Zod to check and clean all incoming data—especially from webhooks—to prevent injection attacks.
-
-- **Secret Management & Rate Limiting**  
-  Store all credentials in environment variables. Protect API routes with rate-limit checks to prevent abuse.
-
-- **HTTPS Everywhere**  
-  Vercel automatically provides SSL certificates, ensuring encrypted connections by default.
-
-- **Performance Optimizations**  
-  • Server-Side Rendering (SSR) and Static Generation (SSG) for fast initial loads  
-  • Image and font optimization via Next.js’ built-in features  
-  • Code splitting to download only what users need on each page
-
-## Conclusion and Overall Tech Stack Summary
-
-truth-time-tracker brings together modern, battle-tested technologies to deliver a fast, secure, and maintainable time-tracking experience:
-
-- **Frontend**: Next.js + React + TypeScript + global CSS + custom fonts  
-- **Backend**: Next.js API Routes + Node.js + TypeScript  
-- **Database**: PostgreSQL + Prisma ORM  
-- **Infrastructure**: GitHub + GitHub Actions + Vercel + environment variables  
-- **Integrations**: Flexible webhook receiver, optional connectors (Slack, Zapier), analytics tools  
-- **Security & Performance**: NextAuth.js, input validation, rate limiting, SSR/SSG, code splitting
-
-Every choice in this stack contributes to our goals of reliability, ease of development, and a smooth user experience. By building on Next.js and TypeScript, we ensure consistency across the entire project. Hosting on Vercel with automated CI/CD guarantees fast, safe deployments. Finally, our modular approach to webhooks and integrations keeps the application extensible as new services emerge.
+Together, these choices align perfectly with the project’s goal of providing an accurate, real-time time-tracking platform that’s both easy to use and easy to maintain. The unified Next.js ecosystem, combined with specialist services like Clerk and Stripe, sets this app apart by offering a cohesive developer experience and a robust, scalable product for end users.
