@@ -1,155 +1,168 @@
-# Security Guideline Document for "truth-time-tracker"
+# Security Guidelines for truth-time-tracker
 
-This document outlines security best practices tailored to the truth-time-tracker codebase, a Next.js/TypeScript time-tracking application with webhook integrations. Adhering to these guidelines will help ensure a secure, resilient, and maintainable system.
-
----
-
-## 1. Authentication & Access Control
-
-- **User Authentication**  
-  • Implement a robust session-based or token-based authentication (e.g., NextAuth.js, Clerk, or Auth0).  
-  • Enforce strong password policies (min. 12 characters, uppercase, lowercase, digits, symbols).  
-  • Store passwords using Argon2 or bcrypt with unique salts.
-
-- **Session & Token Security**  
-  • Use secure, HttpOnly, SameSite=strict cookies for session IDs.  
-  • Rotate and renew session tokens periodically; implement idle and absolute timeouts.  
-  • If JWTs are used, sign with a strong secret or asymmetric key (RS256), enforce `exp` checks, and validate algorithm strictly.
-
-- **Role-Based Access Control (RBAC)**  
-  • Define clear roles (e.g., `admin`, `user`, `webhook-client`).  
-  • Enforce authorization checks on every server-side API route and page.  
-  • Store role/permission claims in a secure session or token; never rely on client-side checks alone.
-
-- **Multi-Factor Authentication (MFA)**  
-  • Offer MFA for sensitive operations (e.g., account settings, exporting reports) via TOTP or SMS/email OTP.
+This document outlines the security best practices and controls tailored for the `truth-time-tracker` web application. Adhering to these guidelines will help ensure robust protection of user data, services, and infrastructure.
 
 ---
 
-## 2. Input Validation & Output Encoding
+## 1. Core Security Principles
 
-- **Server-Side Validation**  
-  • Treat all inputs (forms, query params, headers, webhook payloads) as untrusted.  
-  • Use a validation library (e.g., Zod, Joi) to enforce schema, types, field lengths, and formats.
-
-- **Prevent Injection Attacks**  
-  • Use parameterized queries or an ORM (e.g., Prisma) to interact with the database.  
-  • Sanitize environment variables and any dynamic code paths.
-
-- **Cross-Site Scripting (XSS)**  
-  • Escape user-provided data in JSX; Next.js’s Automatic Escaping protects most contexts but verify dangerous HTML insertion.  
-  • Employ a strict Content Security Policy (CSP) to restrict script sources.
-
-- **Cross-Site Request Forgery (CSRF)**  
-  • For state-changing API routes, implement CSRF tokens (e.g., `next-csrf`).  
-  • Verify the Origin and Referrer headers on sensitive requests.
+- **Security by Design**: Embed security at every stage—from design and implementation to testing and deployment.
+- **Least Privilege**: Grant the minimum permissions required for each component, user, and service.
+- **Defense in Depth**: Layer multiple controls so that the failure of one does not compromise the entire system.
+- **Fail Securely**: Ensure error conditions do not leak sensitive information or leave resources exposed.
+- **Secure Defaults**: Ship with safe settings and require explicit opt-in for any weaker configuration.
 
 ---
 
-## 3. Data Protection & Privacy
+## 2. Authentication & Access Control
 
-- **Transport Encryption**  
-  • Enforce HTTPS (TLS 1.2+) on all endpoints.  
-  • Use HSTS (`Strict-Transport-Security` header).
+### 2.1 Robust Authentication
 
-- **Encryption at Rest**  
-  • Encrypt sensitive fields (PII) at the database level if supported.  
-  • Use AES-256 encryption for any stored tokens or files.
+- Use Clerk’s client- and server-side SDKs to handle sign-up, sign-in, password resets, and session validation.
+- Enforce Multi-Factor Authentication (MFA) for elevated roles (e.g., administrators).
+- Reject any API request without a valid Clerk token. Validate tokens in middleware (`middleware.ts`).
 
-- **Secret Management**  
-  • Do not hardcode API keys, database credentials, or webhook secrets in the repo.  
-  • Leverage a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault) or environment variables with proper access controls.
+### 2.2 Session Management
 
-- **Logging & Error Handling**  
-  • Avoid exposing stack traces or PII in error responses.  
-  • Log errors and audit events centrally (e.g., Sentry, Datadog) with masked sensitive data.
+- Store session tokens in cookies with the attributes: `HttpOnly`, `Secure`, and `SameSite=Strict`.
+- Configure both idle and absolute session timeouts (e.g., idle: 15 min, absolute: 24 hrs).
+- Protect against session fixation by regenerating session identifiers on privilege changes.
 
----
+### 2.3 Role-Based Access Control (RBAC)
 
-## 4. API & Webhook Security
-
-- **Webhook Authentication**  
-  • Require a shared secret or HMAC signature verification for incoming webhooks in `/app/api/webhooks/route.ts`.  
-  • Reject requests missing or failing signature validation.
-
-- **Rate Limiting & Throttling**  
-  • Implement per-IP and per-API-key rate limits (e.g., using `express-rate-limit` or cloud provider features).  
-  • Apply stricter limits on public or unauthenticated endpoints.
-
-- **CORS Policy**  
-  • Configure a restrictive CORS policy: whitelist trusted origins only.  
-  • Disable wildcard (`*`) origins, especially for state-changing routes.
-
-- **API Versioning**  
-  • Prefix API routes (e.g., `/api/v1/...`) to allow safe evolution without breaking clients.
-
-- **Minimize Data Exposure**  
-  • Return only necessary fields in JSON responses.  
-  • Avoid embedding sensitive flags or internal IDs in responses.
+- Define roles (`user`, `admin`, etc.) in Clerk metadata or database tables.
+- Enforce server-side checks in Next.js API routes; never trust client-side role hints.
+- Use Supabase Row-Level Security (RLS) policies to restrict data access to the owning user.
 
 ---
 
-## 5. Web Application Security Hygiene
+## 3. Input Handling & Processing
 
-- **Security Headers**  
-  • `Content-Security-Policy`: restrict scripts, styles, and frame ancestors.  
-  • `X-Content-Type-Options: nosniff`; `X-Frame-Options: DENY`; `Referrer-Policy: no-referrer-when-downgrade`.
+### 3.1 Schema Validation
 
-- **Secure Cookies**  
-  • Set `Secure`, `HttpOnly`, and `SameSite=Strict` attributes on session and refresh cookies.
+- Adopt a schema validation library (e.g., Zod) in every API route.
+- Example for a session start endpoint:
+  ```ts
+  const StartSessionSchema = z.object({
+    taskId: z.string().uuid(),
+    metadata: z.object({ notes: z.string().max(1000) }).optional(),
+  });
+  ```
+- Reject requests that fail validation with generic 4xx responses.
 
-- **Third-Party Scripts**  
-  • Use Subresource Integrity (SRI) hashes for any external CDN assets.
+### 3.2 Prevent Injection Attacks
 
----
+- Use Prisma’s parameterized queries—never interpolate raw values into SQL.
+- Sanitize any dynamic Webhook payload before processing. Validate expected event types and IDs.
 
-## 6. Infrastructure & Deployment
+### 3.3 Cross-Site Scripting (XSS)
 
-- **Server Hardening**  
-  • Disable unused services and close non-essential ports.  
-  • Apply the principle of least privilege to server and database accounts.
+- Escape all user-supplied text in React components. Use a library like `DOMPurify` if sanitizing rich text.
+- Enforce a strict Content Security Policy (CSP) to prevent inline scripts.
 
-- **TLS Configuration**  
-  • Use modern cipher suites (e.g., ECDHE+AES-GCM).  
-  • Disable SSLv3/TLS 1.0/1.1.
+### 3.4 File Uploads
 
-- **Environment Configuration**  
-  • Separate dev, staging, and production environments with distinct credentials and secrets.  
-  • Ensure debug logging and developer tools are disabled in production builds.
-
-- **Automated Updates & Patching**  
-  • Keep the OS, Node.js, and libraries up to date.  
-  • Subscribe to security advisories for dependencies.
+- If files are supported (e.g., images in notes), validate content type, size, and scan for malware.
+- Store uploads in a private bucket or outside the webroot with signed URLs for access.
 
 ---
 
-## 7. Dependency Management
+## 4. Data Protection & Privacy
 
-- **Secure Dependencies**  
-  • Use a lockfile (`package-lock.json`) to pin dependency versions.  
-  • Regularly run SCA tools (e.g., npm audit, Snyk) to detect and remediate vulnerabilities.
+### 4.1 Encryption
 
-- **Minimize Attack Surface**  
-  • Remove unused libraries and devDependencies from production builds.
+- Enforce TLS 1.2+ for all traffic. Redirect HTTP to HTTPS at the edge (Vercel or reverse proxy).
+- Enable encryption at rest in the Supabase/PostgreSQL instance (e.g., AES-256).
 
----
+### 4.2 Sensitive Data Handling
 
-## 8. CI/CD & Monitoring
+- Never log or expose full PII in server logs or error messages.
+- Mask or truncate sensitive fields (e.g., partial email addresses) in audit logs.
 
-- **Continuous Integration**  
-  • Enforce linting, type checks, and unit tests in CI pipelines.  
-  • Fail builds on high-severity vulnerabilities or test coverage drop.
+### 4.3 Secrets Management
 
-- **Continuous Deployment**  
-  • Deploy behind a Web Application Firewall (WAF) and DDoS protection.  
-  • Use blue/green or canary releases to limit blast radius.
-
-- **Monitoring & Alerting**  
-  • Instrument application metrics (errors, latency, rate limits) with real-time alerts.  
-  • Audit access logs and monitor for suspicious activity (e.g., repeated failed logins, anomalous webhook traffic).
+- Store API keys, database credentials, and Stripe secrets in a secure vault (e.g., Vercel Environment Variables, AWS Secrets Manager).
+- Rotate secrets periodically and on suspected compromise.
 
 ---
 
-## Conclusion
+## 5. API & Service Security
 
-By integrating these security controls at every layer—from code to infrastructure—the truth-time-tracker application will achieve defense in depth, secure defaults, and a robust posture against common threats. Regularly review and update these guidelines to align with evolving threats and project requirements.
+- **HTTPS Only**: Enforce TLS; disable any non-encrypted endpoints.
+- **Rate Limiting**: Implement rate limits on Next.js API routes (e.g., `@upstash/ratelimit` or custom middleware) to mitigate brute-force and DDoS.
+- **CORS Policies**: Restrict to trusted origins. Example:
+  ```js
+  const cors = Cors({
+    origin: [process.env.APP_URL],
+    methods: ['GET','POST','PUT','DELETE'],
+  });
+  ```
+- **Minimal Data Exposure**: Return only necessary fields in API responses (avoid transmitting internal IDs or secrets).
+- **HTTP Verbs**: Use GET for reads, POST for creates, PUT/PATCH for updates, DELETE for removals.
+- **Versioning**: Prefix API routes with `/v1/` to allow future evolution without breaking clients.
+
+---
+
+## 6. Web Application Security Hygiene
+
+- **CSRF Protection**: Use anti-CSRF tokens (e.g., `next-csrf`) on all state-changing requests.
+- **Security Headers**: Configure headers via Next.js `headers()` in `next.config.js`:
+  - `Strict-Transport-Security`: `max-age=63072000; includeSubDomains; preload`
+  - `X-Frame-Options`: `DENY`
+  - `X-Content-Type-Options`: `nosniff`
+  - `Referrer-Policy`: `strict-origin-when-cross-origin`
+  - `Content-Security-Policy`: define `default-src`, `script-src`, `style-src`, etc.
+- **Cookie Attributes**: Ensure `Secure`, `HttpOnly`, and `SameSite` on all session and CSRF cookies.
+
+---
+
+## 7. Infrastructure & Configuration Management
+
+- **Harden Servers**: Disable unused features and ports on any custom servers or VMs.
+- **Disable Debug in Production**: Ensure `next dev` and `debug` flags are never enabled in production builds.
+- **Secure TLS Configuration**: Use modern cipher suites; disable SSLv3 and TLS<1.2.
+- **File Permissions**: Restrict file system access so that application code cannot modify sensitive directories at runtime.
+
+---
+
+## 8. Dependency Management
+
+- Maintain a lockfile (`package-lock.json`) to prevent unexpected upgrades.
+- Integrate SCA tools (e.g., GitHub Dependabot, Snyk) to scan for CVEs in both direct and transitive dependencies.
+- Review and update dependencies regularly, especially security patches for Next.js, React, Prisma, and Supabase.
+
+---
+
+## 9. Feature-Specific Security Considerations
+
+### 9.1 Time Tracking & Sessions
+- Validate the user’s ownership of a session before allowing pause/resume/stop.
+- Prevent overlapping sessions by enforcing a database constraint or application-level check.
+
+### 9.2 Daily Notes
+- Limit note length and sanitize rich text inputs.
+- Use RLS policies so each user can only access their own notes.
+
+### 9.3 Webhooks (Stripe)
+- Verify webhook signatures using Stripe’s signing secret.
+- Implement idempotency to avoid duplicate events (e.g., track `event.id`).
+
+### 9.4 Subscription Management
+- Verify subscription status on each protected request.
+- Use Stripe’s `customer.subscription.updated` events to reconcile states; never trust client-provided plan data.
+
+---
+
+## 10. Monitoring, Logging & Incident Response
+
+- Centralize logs in a secure service (e.g., Sentry, Elasticsearch + Kibana).
+- Log authentication successes/failures, permission denials, and critical errors without logging sensitive fields.
+- Establish an incident response plan:
+  1. Detect and contain
+  2. Eradicate root cause
+  3. Recover services
+  4. Review and improve
+
+---
+
+By following these security guidelines, the `truth-time-tracker` application will be better positioned to protect user data, maintain service integrity, and comply with industry best practices.
